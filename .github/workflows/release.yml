@@ -1,0 +1,53 @@
+name: Make Release
+
+on:
+  push:
+    tags: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # runs-on:
+    #   group: reference-platforms-linux
+    container:
+      image: peridio/reference-platforms-linux-build:pr-1
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: set global environment
+        run: |
+          echo "TARGET=rpi4" >> $GITHUB_ENV
+          echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
+
+      # can't use $TARGET in same step it's defined
+      - name: set architecture environment
+        run: |
+          echo "$TARGET"
+          echo "INITRAMFS_ARCH=$(cat targets/$TARGET/INITRAMFS_ARCH)" >> $GITHUB_ENV
+
+      - name: build initramfs
+        run: |
+          ./tools/scripts/create-build.sh o/initramfs-${{ env.INITRAMFS_ARCH }} initramfs/${{ env.INITRAMFS_ARCH }}_defconfig
+
+      - name: make initramfs
+        working-directory: o/initramfs-${{ env.INITRAMFS_ARCH }}
+        run: make
+
+      - name: build target system
+        run: |
+          ./tools/scripts/create-build.sh o/${{ env.TARGET }} targets/${{ env.TARGET }}/defconfig tools/buildroot-external-peridio-platform/configs/peridio_platform_defconfig
+
+      - name: make target system
+        working-directory: o/${{ env.TARGET }}
+        run: make
+
+      # - name: compress image
+      #   run: |
+      #     tar cJ -C o/${{ env.TARGET }} -f peridio-reference-platform-${{ env.TARGET }}-${{ env.VERSION }}.xz images --transform "s/images/peridio-reference-platform-${{ env.TARGET }}-${{ env.VERSION }}/"
