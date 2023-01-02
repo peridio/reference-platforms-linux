@@ -159,4 +159,3 @@ echo "For additional options, run 'make help' in the build directory."
 echo
 echo "IMPORTANT: If you update custom-project, you should rerun this script."
 echo "           It will refresh the configuration in the build directory."
-
